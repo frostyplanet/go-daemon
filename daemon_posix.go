@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"syscall"
 )
 
@@ -96,12 +95,12 @@ func WasReborn() bool {
 
 func (d *Context) parent() (child *os.Process, err error) {
 	if err = d.prepareEnv(); err != nil {
-		return
+		panic(err)
 	}
 
 	defer d.closeFiles()
 	if err = d.openFiles(); err != nil {
-		return
+		panic(err)
 	}
 
 	attr := &os.ProcAttr{
@@ -112,14 +111,12 @@ func (d *Context) parent() (child *os.Process, err error) {
 			Setsid:     true,
 		},
 	}
-
 	if child, err = os.StartProcess(d.abspath, d.Args, attr); err != nil {
 		if d.pidFile != nil {
 			d.pidFile.Remove()
 		}
-		return
+		panic(err)
 	}
-
 	d.rpipe.Close()
 	encoder := json.NewEncoder(d.wpipe)
 	err = encoder.Encode(d)
@@ -178,8 +175,9 @@ func (d *Context) closeFiles() (err error) {
 }
 
 func (d *Context) prepareEnv() (err error) {
-	if d.abspath, err = filepath.Abs(os.Args[0]); err != nil {
-		return
+	// get the correct exec path even if process executed through symlink
+	if d.abspath, err = GetExecPath(os.Getpid()); err != nil {
+		panic(err)
 	}
 
 	if len(d.Args) == 0 {
@@ -273,3 +271,76 @@ func (d *Context) Release() (err error) {
 	}
 	return
 }
+
+func (d *Context) Status() {
+	p, _ := d.Search()
+	if p == nil {
+		fmt.Println("stopped")
+		os.Exit(1)
+	} else if IsProcessRunning(p.Pid) {
+		fmt.Println("running")
+		os.Exit(0)
+	} else {
+		fmt.Println("crashed")
+		os.Exit(1)
+	}
+}
+
+func (d *Context) getRunningProcess() (*os.Process, error){
+	p, err := d.Search()
+	if err != nil {
+		return nil, err
+	} else if (p != nil && IsProcessRunning(p.Pid)) {
+		return p, nil
+	}
+	return nil, err
+}
+
+func (d *Context) Stop() {
+	p, _ := d.getRunningProcess()
+	if p == nil {
+		fmt.Println("not running")
+		os.Exit(1)
+	}
+	if err := p.Signal(syscall.SIGTERM); err != nil {
+		panic(err)
+	}
+	p.Wait()
+	fmt.Println("stopped")
+	os.Remove(d.PidFileName)
+	os.Exit(0)
+}
+
+func (d *Context) Kill() {
+	p, _ := d.getRunningProcess()
+	if p == nil {
+		fmt.Println("not running")
+		os.Exit(1)
+	}
+	if err := p.Kill(); err != nil {
+		panic(err)
+	}
+	fmt.Println("killed")
+	os.Remove(d.PidFileName)
+	os.Exit(0)
+}
+
+func (d *Context) Start() {
+	p, err := d.Search()
+	if p != nil {
+		if IsProcessRunning(p.Pid) {
+			fmt.Println("daemon already running")
+			os.Exit(1)
+		}
+	}
+	p, err = d.Reborn()
+	if err != nil {
+		fmt.Println("error:", err)
+		os.Exit(1)
+	}
+	if p != nil {
+		fmt.Println("started")
+		os.Exit(0)
+	}
+}
+
