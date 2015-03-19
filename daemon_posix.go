@@ -277,7 +277,7 @@ func (d *Context) Status() {
 	if p == nil {
 		fmt.Println("stopped")
 		os.Exit(1)
-	} else if IsProcessRunning(p.Pid) {
+	} else if IsProcessRunning(p.Pid, d.PidFileName) {
 		fmt.Println("running")
 		os.Exit(0)
 	} else {
@@ -290,7 +290,7 @@ func (d *Context) getRunningProcess() (*os.Process, error){
 	p, err := d.Search()
 	if err != nil {
 		return nil, err
-	} else if (p != nil && IsProcessRunning(p.Pid)) {
+	} else if (p != nil && IsProcessRunning(p.Pid, d.PidFileName)) {
 		return p, nil
 	}
 	return nil, err
@@ -328,7 +328,7 @@ func (d *Context) Kill() {
 func (d *Context) Start() {
 	p, err := d.Search()
 	if p != nil {
-		if IsProcessRunning(p.Pid) {
+		if IsProcessRunning(p.Pid, d.PidFileName) {
 			fmt.Println("daemon already running")
 			os.Exit(1)
 		}
