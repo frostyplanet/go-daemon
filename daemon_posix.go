@@ -300,7 +300,7 @@ func (d *Context) Stop() {
 	p, _ := d.getRunningProcess()
 	if p == nil {
 		fmt.Println("not running")
-		os.Exit(1)
+		return
 	}
 	if err := p.Signal(syscall.SIGTERM); err != nil {
 		panic(err)
@@ -308,23 +308,22 @@ func (d *Context) Stop() {
 	p.Wait()
 	fmt.Println("stopped")
 	os.Remove(d.PidFileName)
-	os.Exit(0)
 }
 
 func (d *Context) Kill() {
 	p, _ := d.getRunningProcess()
 	if p == nil {
 		fmt.Println("not running")
-		os.Exit(1)
+		return
 	}
 	if err := p.Kill(); err != nil {
 		panic(err)
 	}
 	fmt.Println("killed")
 	os.Remove(d.PidFileName)
-	os.Exit(0)
 }
 
+//Start() only return in child, will os.Exit in parent if success
 func (d *Context) Start() {
 	p, err := d.Search()
 	if p != nil {
@@ -344,3 +343,7 @@ func (d *Context) Start() {
 	}
 }
 
+func (d *Context) Restart() {
+	d.Stop()
+	d.Start()
+}
