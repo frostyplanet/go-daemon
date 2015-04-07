@@ -14,7 +14,7 @@ func GetExecPath(pid int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	link_target = strings.TrimRight(link_target, " (deleted)") //if exe file is replace
+	link_target = strings.TrimSuffix(link_target, " (deleted)") //if exe file is replace
 	return link_target, nil
 }
 
